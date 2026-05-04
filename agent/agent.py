@@ -8,6 +8,7 @@ if __package__ in (None, ''):
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -23,21 +24,31 @@ class Agent:
     def __init__(
         self,
         tools: list[dict[str, Any]],
-        model_provider: str = 'anthropic',
-        model_name: str = 'claude-sonnet-4-6',
-        local: bool = False,
-        system_prompt: str = '',
+        model_provider: str | None = None,
+        model: str | None = None,
+        local: bool = False
     ) -> None:
-    
-        self.client, self.model = build_client(model_provider, model_name, local=local)
+
+        self.client, self.model = build_client(model_provider, model, local=local)
+        self.model_provider = model_provider
         self.tools = tools
         self.handler = ToolHandler()
         self.messages: list[dict] = []
-        self.system_prompt = system_prompt
 
-        # Registert tools with the agent
+        self.system_prompt = (Path(__file__).parent / 'context' / 'system_prompt.md').read_text(encoding='utf-8').strip()
+        self.memory = (Path(__file__).parent / 'context' / 'memory.md').read_text(encoding='utf-8').strip()
+
+        # Register tools with the agent
         for tool in self.tools:
             self.handler.register(tool)
+        
+        self.build_context()
+
+    def build_context(self) -> None:
+        self.messages.append({'role': 'system', 'content': self.system_prompt})
+
+        if self.memory:
+            self.messages.append({'role': 'system', 'content': self.memory})
 
     def run(self, prompt: str) -> str:
         self.messages.append({'role': 'user', 'content': prompt})
@@ -46,8 +57,14 @@ class Agent:
 
 if __name__ == '__main__':
     agent = Agent(
-        system_prompt='You are a helpful assistant that can answer questions and help with tasks. You are extremely funny and witty. You are also a bit of a nerd.',
-        tools=[weather.tool, read_file.tool, calculator.tool, file_architecture.tool]
+        model_provider='anthropic',
+        model='claude-sonnet-4-6',
+        tools=[
+            weather.tool, 
+            read_file.tool, 
+            calculator.tool, 
+            file_architecture.tool
+        ]
     )
 
     while True:

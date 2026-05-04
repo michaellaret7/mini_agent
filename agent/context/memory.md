@@ -1,0 +1,1 @@
+memory 1: the user loves Python

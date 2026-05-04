@@ -16,18 +16,21 @@ PROVIDER_ENV: dict[str, tuple[str, str]] = {
 
 
 def build_client(
-    model_provider: str,
-    model_name: str,
+    model_provider: str | None = None,
+    model: str | None = None,
     local: bool = False,
 ) -> tuple[OpenAI, str]:
-    """Return (client, model_name). Pass local=True to hit the dev server."""
+    """Return (client, model). Pass local=True to hit the dev server."""
 
     if local:
-        model_name = 'nemotron3-nano-4b-fp8'
-        return OpenAI(api_key=LOCAL_API_KEY, base_url=LOCAL_BASE_URL), model_name
+        model = 'nemotron3-nano-4b-fp8'
+        return OpenAI(api_key=LOCAL_API_KEY, base_url=LOCAL_BASE_URL), model
+
+    if model_provider is None or model is None:
+        raise ValueError('model_provider and model are required when local=False')
 
     provider = model_provider.lower()
-    
+
     if provider not in PROVIDER_ENV:
         raise ValueError(
             f'unknown model_provider {model_provider!r}; '
@@ -43,4 +46,4 @@ def build_client(
             f'set it in .env or pass local=True for the dev server'
         )
 
-    return OpenAI(api_key=api_key, base_url=os.getenv(url_var)), model_name
+    return OpenAI(api_key=api_key, base_url=os.getenv(url_var)), model
