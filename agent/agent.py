@@ -57,14 +57,13 @@ class Agent:
 
 if __name__ == '__main__':
     agent = Agent(
-        model_provider='anthropic',
-        model='claude-sonnet-4-6',
         tools=[
             weather.tool, 
             read_file.tool, 
             calculator.tool, 
             file_architecture.tool
-        ]
+        ],
+        local=True
     )
 
     while True:
