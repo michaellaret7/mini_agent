@@ -48,7 +48,7 @@ def _iter_files(base: Path, glob_pattern: str):
 
 
 tool = {
-    'name': 'grep',
+    'name': 'Grep',
     'description': (
         'Search file contents with a regex pattern. Returns matching lines as '
         '"path:lineno:line", up to 200 matches. When path is a directory, the '

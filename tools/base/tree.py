@@ -1,10 +1,7 @@
-"""Return a tree view of files and directories under the project root."""
+"""Return a tree view of files and directories, like the `tree` command."""
 from __future__ import annotations
 
 from pathlib import Path
-
-# tools/file_architecture.py -> tools -> project root
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Heavy or noisy directories — skip outright so the tree stays readable.
 SKIP = {
@@ -17,10 +14,8 @@ MAX_LINES = 200
 MAX_DEPTH = 5
 
 
-def get_file_architecture(path: str = '.') -> str:
-    target = (PROJECT_ROOT / path).resolve()
-    if not target.is_relative_to(PROJECT_ROOT):
-        return f'error: path {path!r} is outside the project directory'
+def tree(path: str = '.') -> str:
+    target = Path(path).expanduser().resolve()
     if not target.is_dir():
         return f'error: not a directory: {path!r}'
 
@@ -55,22 +50,21 @@ def _walk(dir_path: Path, prefix: str, lines: list[str], depth: int) -> None:
 
 
 tool = {
-    'name': 'get_file_architecture',
+    'name': 'Tree',
     'description': (
         'Return a tree view of files and directories under a folder, like the '
-        'output of `tree`. The path is relative to the project root. Hidden '
-        'and heavy directories (.venv, __pycache__, .git, models, node_modules) '
-        'are skipped.'
+        'output of the `tree` command. Hidden and heavy directories (.venv, '
+        '__pycache__, .git, models, node_modules, etc.) are skipped.'
     ),
     'parameters': {
         'type': 'object',
         'properties': {
             'path': {
                 'type': 'string',
-                'description': 'Folder path relative to the project root. Defaults to "." (project root).',
+                'description': 'Absolute or relative folder path. Defaults to "." (current directory).',
             },
         },
         'required': [],
     },
-    'function': get_file_architecture,
+    'function': tree,
 }

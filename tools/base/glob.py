@@ -76,7 +76,7 @@ def glob(
 
 
 tool = {
-    'name': 'glob',
+    'name': 'Glob',
     'description': (
         'Find files matching a glob pattern (e.g. "**/*.py" or "src/*.ts"). '
         'Results are returned as paths relative to the search directory, '

@@ -29,7 +29,7 @@ def read(file_path: str, offset: int = 0, limit: int = DEFAULT_LIMIT) -> str:
 
 
 tool = {
-    'name': 'read',
+    'name': 'ReadFile',
     'description': (
         'Read a file from the local filesystem. Output uses cat -n format with '
         'line numbers starting at 1. Default reads up to 2000 lines from the start.'

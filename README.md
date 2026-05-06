@@ -26,8 +26,7 @@ The client supports three backends:
 
 - **Streaming token-by-token output** with live reasoning passthrough (the `<think>...</think>` blocks thinking models emit).
 - **Tool calling** in the standard OpenAI tool-call format, with fragment reassembly across stream chunks.
-- **Built-in tools** — calculator (AST-based, no `eval`), weather (wttr.in), file reader, file-tree viewer, current time. File tools are sandboxed to the project directory.
-- **Safe by construction** — file tools reject paths outside the project root; the calculator walks the AST instead of evaluating it.
+- **Built-in tools** — bash, read/write/edit, glob, grep, and a `tree` view of the filesystem.
 
 ## Requirements
 
@@ -84,10 +83,7 @@ local-agent/
 │   │   ├── system_prompt.md
 │   │   └── memory.md
 │   └── tools/              # individual tools (one file each)
-│       ├── calculator.py
-│       ├── file_architecture.py
-│       ├── read_file.py
-│       └── weather.py
+│       └── base/           # bash, read, write, edit, glob, grep, tree
 └── pyproject.toml
 ```
 

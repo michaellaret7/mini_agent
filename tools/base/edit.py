@@ -29,7 +29,7 @@ def edit(file_path: str, old_string: str, new_string: str, replace_all: bool = F
 
 
 tool = {
-    'name': 'edit',
+    'name': 'EditFile',
     'description': (
         'Replace a literal string in a file. Fails if old_string is not found, '
         'or if it occurs more than once and replace_all is false.'

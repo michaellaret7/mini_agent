@@ -70,7 +70,7 @@ def bash(command: str, timeout: int = DEFAULT_TIMEOUT) -> str:
 
 
 tool = {
-    'name': 'bash',
+    'name': 'Bash',
     'description': (
         'Execute a bash command and return combined stdout/stderr. Runs in real '
         'bash on every platform (Git Bash on Windows), so POSIX syntax works '

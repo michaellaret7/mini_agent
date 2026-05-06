@@ -12,7 +12,7 @@ def write(file_path: str, content: str) -> str:
 
 
 tool = {
-    'name': 'write',
+    'name': 'WriteFile',
     'description': (
         'Write content to a file on the local filesystem. Overwrites any '
         'existing file at that path; creates parent directories as needed.'
