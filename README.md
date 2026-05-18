@@ -1,9 +1,8 @@
 <div align="center">
 
+# mini-agent
 
-# local-agent
-
-**A streaming, tool-calling agent client that talks to any OpenAI-compatible endpoint.**
+**The simplest, most obvious form of an agent — built from first principles.**
 
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![uv](https://img.shields.io/badge/uv-managed-DE5FE9)](https://github.com/astral-sh/uv)
@@ -14,102 +13,119 @@
 
 ## What this is
 
-A minimal agent loop. It streams tokens from a chat-completions endpoint, parses tool calls, executes them, and feeds the results back — until the model stops asking for tools and returns a final answer.
+An agent, stripped to the parts that actually make it an agent — and nothing else. No framework, no orchestration layer, no abstractions you have to learn before you can read the code.
 
-The client supports three backends:
+If you've ever wanted to see how an LLM agent really works under the hood, this is meant to be the answer. Two short files do the entire job:
 
-- A hosted vLLM endpoint (e.g. RunPod proxy) — original target was NVIDIA Nemotron 3 Nano on vLLM.
-- OpenAI's API.
-- Anthropic's API (via an OpenAI-compatible shim).
+- `agent/loop.py` — call the model, run any tools it asks for, append the results, call again. That's the loop.
+- `agent/agent.py` — wire up a client, a system prompt, a tool registry, and message history.
 
-## Features
+Everything else (tools, provider switching, streaming) is straightforward code you can read top-to-bottom in a sitting.
 
-- **Streaming token-by-token output** with live reasoning passthrough (the `<think>...</think>` blocks thinking models emit).
-- **Tool calling** in the standard OpenAI tool-call format, with fragment reassembly across stream chunks.
-- **Built-in tools** — bash, read/write/edit, glob, grep, and a `tree` view of the filesystem.
+## The whole idea, in plain English
+
+An agent is just:
+
+1. Send the conversation to an LLM, along with a list of tools it's allowed to call.
+2. If the model replies with tool calls, run those tools locally and append the results to the conversation.
+3. Loop until the model replies without asking for tools — that's the final answer.
+
+That's it. The rest is plumbing.
 
 ## Requirements
 
 - Python 3.12
 - [`uv`](https://github.com/astral-sh/uv) for dependency management
-- An endpoint to talk to — Anthropic, OpenAI, or a hosted vLLM endpoint
+- An [OpenRouter](https://openrouter.ai) API key (or a hosted vLLM endpoint)
 
 ## Setup
 
 ```bash
-# 1. Install dependencies
+# 1. Install dependencies (note: --group agent, not a plain sync)
 uv sync --group agent
 
-# 2. Configure provider credentials
+# 2. Add credentials
 cp .env.example .env
-# then edit .env — see "Configuring the endpoint" below
+# edit .env — only the provider you actually use needs real values
 ```
 
 ## Running
 
 ```bash
-uv run python -m agent
+uv run python main.py
 ```
 
 You'll get a `>` prompt. Try:
 
 ```
-> what's 2 ** 16 plus the number of files in agent/tools?
-> what's the weather in new york right now?
-> read agent/loop.py and explain how tool calls are reassembled across stream chunks
+> what files are in this repo?
+> read agent/loop.py and explain how it works
+> create a file hello.txt that says "hi"
 ```
 
 Type `exit` to quit.
 
-## Configuring the endpoint
-
-`agent/client.py` builds the OpenAI-compatible client. Three modes:
-
-**Hosted vLLM (default)** — `Agent(tools=[...])` or `Agent(tools=[...], provider='vllm')`. The client reads `VLLM_API_URL` and `VLLM_MODEL` from `.env`. Point `VLLM_API_URL` at your RunPod (or other) endpoint.
-
-**OpenAI / Anthropic** — pass `provider='openai'` (or `'anthropic'`) and a `model` name. The client reads `OPENAI_API_KEY` / `OPENAI_API_URL` (or the `ANTHROPIC_*` equivalents) from `.env`.
+By default `main.py` runs with `anthropic/claude-opus-4-7` via OpenRouter. To switch models, edit the `Agent(...)` call in `main.py` — anything OpenRouter exposes will work.
 
 ## Project layout
 
 ```
-local-agent/
+mini_agent/
+├── main.py                 # REPL entry point
 ├── agent/
-│   ├── __main__.py         # REPL entry point (uv run python -m agent)
-│   ├── agent.py            # Agent class, message history, context wiring
-│   ├── client.py           # OpenAI-compatible client builder (vllm / openai / anthropic)
-│   ├── loop.py             # streaming execution loop, tool-call reassembly
-│   ├── tool_handler.py     # tool registry + dispatch
-│   ├── context/
-│   │   ├── system_prompt.md
-│   │   └── memory.md
-│   └── tools/              # individual tools (one file each)
-│       └── base/           # bash, read, write, edit, glob, grep, tree
+│   ├── agent.py            # Agent class — owns messages + tool registry
+│   ├── loop.py             # The loop. Streaming + tool-call reassembly.
+│   ├── client.py           # Build an OpenAI-compatible client for any provider
+│   ├── tool_handler.py     # Dispatch parsed tool calls to Python functions
+│   └── context/
+│       ├── system_prompt.md
+│       └── memory.md
+├── tools/
+│   └── base/               # bash, read, write, edit, glob, grep, tree, search
 └── pyproject.toml
 ```
 
-## How the loop works
+## The loop
 
-`agent/loop.py` is the interesting part. The model's response can interleave plain text, reasoning, and tool-call fragments — the latter arrive in pieces keyed by index, with the function name on the first fragment and arguments dribbling in across many subsequent chunks. The loop:
+`agent/loop.py` is the heart of the agent. In pseudocode:
 
-1. Streams a completion, printing content live.
-2. Reassembles fragmented `tool_calls` into complete dicts.
-3. If there are tool calls, executes each one through `ToolHandler.execute()` and appends the results as `role: "tool"` messages.
-4. Repeats until the model returns a turn with no tool calls — that's the final answer.
-5. Bails out at `max_iters=10` to avoid runaway loops.
+```
+loop:
+    content, tool_calls = call_model(messages, tools)
+    append assistant turn to messages
+    if no tool_calls:
+        return content
+    for each tool_call:
+        run the tool, append the result as a 'tool' message
+```
 
-Reasoning content is printed live but **not** appended to history, matching the convention for thinking models.
+Two details worth knowing if you want to extend it:
 
-## Adding a tool
+- **Streaming reassembly.** When streaming, the OpenAI protocol delivers tool calls as fragments keyed by `index` — the first fragment carries the function name, later fragments dribble in the JSON arguments. The loop merges them by index so parallel tool calls don't get scrambled.
+- **Reasoning passthrough.** For thinking models, `reasoning_content` is printed live to the screen but deliberately *not* appended to message history. The model's "thoughts" are for your eyes, not for the next prompt.
 
-A tool is just a dict with four keys. Drop a file in `agent/tools/` like:
+## Providers
+
+`agent/client.py` builds an OpenAI-compatible client for two backends. Both speak the same wire format, so the loop doesn't know or care which one is in use:
+
+| Provider     | How it's reached                                                              |
+|--------------|-------------------------------------------------------------------------------|
+| `openrouter` | OpenRouter — one API key, every frontier model (Anthropic, OpenAI, DeepSeek…) |
+| `vllm`       | Any self-hosted or proxied vLLM server (e.g. RunPod)                          |
+
+Pick one in code: `Agent(provider='openrouter', model='openai/gpt-5')`.
+
+## Tools
+
+A tool is a dict with four keys: a name, a description, a JSON Schema for its parameters, and the Python function to call. Drop a new file in `tools/base/`:
 
 ```python
-# agent/tools/echo.py
+# tools/base/echo.py
 def echo(text: str) -> str:
     return text
 
 tool = {
-    'name': 'echo',
+    'name': 'Echo',
     'description': 'Echo a string back unchanged.',
     'parameters': {
         'type': 'object',
@@ -125,17 +141,25 @@ tool = {
 Then register it on the agent:
 
 ```python
-from agent.tools import echo
-agent = Agent()
+from tools.base import echo
 agent.add_tool(**echo.tool)
 ```
 
-The schema goes to the model on the next request, and `ToolHandler` dispatches to your `function` when the model calls it.
+The schema goes to the model on the next request; when the model calls `Echo(text="hi")`, `ToolHandler` looks up `echo` in the registry, runs it, and feeds the return value back as a `role: "tool"` message.
+
+### Built-in tools
+
+| Tool        | Purpose                                              |
+|-------------|------------------------------------------------------|
+| `Bash`      | Run a shell command (real bash, Git Bash on Windows) |
+| `ReadFile`  | Read a file with line numbers                        |
+| `Write`     | Write a file                                         |
+| `Edit`      | Edit a file in place                                 |
+| `Glob`      | Find files by pattern                                |
+| `Grep`      | Search file contents                                 |
+| `Tree`      | Show a directory tree                                |
+| `WebSearch` | Web search via Parallel Search API                   |
 
 ## License
 
-MIT (or whatever you prefer — add a `LICENSE` file).
-
-## Acknowledgements
-
-- [wttr.in](https://wttr.in) for the weather endpoint
+MIT.

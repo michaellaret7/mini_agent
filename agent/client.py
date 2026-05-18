@@ -1,4 +1,4 @@
-"""Build an OpenAI-compatible client for Anthropic, OpenAI, or our hosted vLLM (RunPod)."""
+"""Build an OpenAI-compatible client for OpenRouter or a hosted vLLM endpoint."""
 from __future__ import annotations
 
 import os
@@ -9,12 +9,11 @@ VLLM_PLACEHOLDER_KEY = 'placeholder'  # hosted vLLM endpoint does not require au
 
 # provider -> (api_key env var, base_url env var)
 HOSTED_PROVIDER_ENV: dict[str, tuple[str, str]] = {
-    'anthropic': ('ANTHROPIC_API_KEY', 'ANTHROPIC_API_URL'),
-    'openai': ('OPENAI_API_KEY', 'OPENAI_API_URL'),
+    'openrouter': ('OPENROUTER_API_KEY', 'OPENROUTER_API_URL'),
 }
 
 def build_client(provider: str = 'vllm', model: str | None = None) -> tuple[OpenAI, str]:
-    """Return (client, model). provider is 'anthropic', 'openai', or 'vllm'."""
+    """Return (client, model). provider is 'openrouter' or 'vllm'."""
 
     provider = provider.lower()
 
@@ -27,7 +26,7 @@ def build_client(provider: str = 'vllm', model: str | None = None) -> tuple[Open
 
         if not model:
             raise RuntimeError('missing model: set VLLM_MODEL or pass model=')
-            
+
         return OpenAI(api_key=VLLM_PLACEHOLDER_KEY, base_url=base_url), model
 
     if provider not in HOSTED_PROVIDER_ENV:
